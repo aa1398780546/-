@@ -17,6 +17,7 @@
 #include <wifi_station.h>  // 如果还没有包含的话
 #include <ssid_manager.h>
 #include <esp_heap_caps.h>  // 用于heap_caps_get_free_size等函数
+#include <inttypes.h>  // 添加这个头文件
 
 #define TAG "Application"
 
@@ -527,7 +528,7 @@ void Application::OnClockTimer() {
     auto display = Board::GetInstance().GetDisplay();
     display->UpdateStatusBar();
 
-    // WiFi信号强度监控 - 每秒打印一次
+    // WiFi信号强度和系统监控 - 每秒打印一次
     if (wifi_monitoring_enabled_) {
         auto& wifi_station = WifiStation::GetInstance();
         if (wifi_station.IsConnected()) {
@@ -541,8 +542,44 @@ void Application::OnClockTimer() {
             int free_sram = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
             int min_free_sram = heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL);
             
-            ESP_LOGI(TAG, "WiFi: %d dBm | 堆内存: %u/%u bytes | 内部SRAM: %u/%u bytes", 
-                     rssi, free_heap, min_free_heap, free_sram, min_free_sram);
+            // 计算WebSocket网络速度
+            static uint64_t last_ws_tx_bytes = 0;
+            static uint64_t last_ws_rx_bytes = 0;
+            static uint64_t last_ws_tx_messages = 0;
+            static uint64_t last_ws_rx_messages = 0;
+            static uint32_t last_time = 0;
+            
+            uint32_t current_time = esp_timer_get_time() / 1000; // 转换为毫秒
+            uint64_t current_ws_tx_bytes = GetWsTxBytes();
+            uint64_t current_ws_rx_bytes = GetWsRxBytes();
+            uint64_t current_ws_tx_messages = GetWsTxMessages();
+            uint64_t current_ws_rx_messages = GetWsRxMessages();
+            
+            float ws_tx_speed = 0, ws_rx_speed = 0;
+            uint32_t tx_msg_rate = 0, rx_msg_rate = 0;
+            
+            if (last_time > 0) {
+                uint32_t time_diff = current_time - last_time;
+                if (time_diff > 0) {
+                    ws_tx_speed = (float)(current_ws_tx_bytes - last_ws_tx_bytes) * 1000.0f / time_diff; // bytes/s
+                    ws_rx_speed = (float)(current_ws_rx_bytes - last_ws_rx_bytes) * 1000.0f / time_diff; // bytes/s
+                    tx_msg_rate = (current_ws_tx_messages - last_ws_tx_messages) * 1000 / time_diff; // msg/s
+                    rx_msg_rate = (current_ws_rx_messages - last_ws_rx_messages) * 1000 / time_diff; // msg/s
+                }
+            }
+            
+            last_ws_tx_bytes = current_ws_tx_bytes;
+            last_ws_rx_bytes = current_ws_rx_bytes;
+            last_ws_tx_messages = current_ws_tx_messages;
+            last_ws_rx_messages = current_ws_rx_messages;
+            last_time = current_time;
+            
+            #include <inttypes.h>  // 添加这个头文件
+            
+            // 在OnClockTimer函数中：
+            ESP_LOGI(TAG, "WiFi: %d dBm | 内存: %u/%u | SRAM: %u/%u | WS: ↑%.1fKB/s(%" PRIu32 "/s) ↓%.1fKB/s(%" PRIu32 "/s)", 
+                     rssi, free_heap, min_free_heap, free_sram, min_free_sram, 
+                     ws_tx_speed/1024.0f, tx_msg_rate, ws_rx_speed/1024.0f, rx_msg_rate);
         }
     }
 
@@ -895,4 +932,15 @@ void Application::AddAudioData(AudioStreamPacket&& packet) {
 
 void Application::PlaySound(const std::string_view& sound) {
     audio_service_.PlaySound(sound);
+}
+
+
+void Application::UpdateWsTxBytes(size_t bytes) {
+    ws_tx_bytes_ += bytes;
+    ws_tx_messages_++;
+}
+
+void Application::UpdateWsRxBytes(size_t bytes) {
+    ws_rx_bytes_ += bytes;
+    ws_rx_messages_++;
 }

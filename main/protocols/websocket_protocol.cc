@@ -9,6 +9,7 @@
 #include <esp_log.h>
 #include <arpa/inet.h>
 #include "assets/lang_config.h"
+#include <esp_timer.h>  // 用于时间戳
 
 #define TAG "WS"
 
@@ -30,6 +31,9 @@ bool WebsocketProtocol::SendAudio(std::unique_ptr<AudioStreamPacket> packet) {
         return false;
     }
 
+    bool result = false;
+    size_t sent_bytes = 0;
+    
     if (version_ == 2) {
         std::string serialized;
         serialized.resize(sizeof(BinaryProtocol2) + packet->payload.size());
@@ -41,7 +45,8 @@ bool WebsocketProtocol::SendAudio(std::unique_ptr<AudioStreamPacket> packet) {
         bp2->payload_size = htonl(packet->payload.size());
         memcpy(bp2->payload, packet->payload.data(), packet->payload.size());
 
-        return websocket_->Send(serialized.data(), serialized.size(), true);
+        sent_bytes = serialized.size();
+        result = websocket_->Send(serialized.data(), serialized.size(), true);
     } else if (version_ == 3) {
         std::string serialized;
         serialized.resize(sizeof(BinaryProtocol3) + packet->payload.size());
@@ -51,10 +56,20 @@ bool WebsocketProtocol::SendAudio(std::unique_ptr<AudioStreamPacket> packet) {
         bp3->payload_size = htons(packet->payload.size());
         memcpy(bp3->payload, packet->payload.data(), packet->payload.size());
 
-        return websocket_->Send(serialized.data(), serialized.size(), true);
+        sent_bytes = serialized.size();
+        result = websocket_->Send(serialized.data(), serialized.size(), true);
     } else {
-        return websocket_->Send(packet->payload.data(), packet->payload.size(), true);
+        sent_bytes = packet->payload.size();
+        result = websocket_->Send(packet->payload.data(), packet->payload.size(), true);
     }
+    
+    // 添加发送统计
+    if (result) {
+        auto& app = Application::GetInstance();
+        app.UpdateWsTxBytes(sent_bytes);
+    }
+    
+    return result;
 }
 
 bool WebsocketProtocol::SendText(const std::string& text) {
@@ -62,11 +77,16 @@ bool WebsocketProtocol::SendText(const std::string& text) {
         return false;
     }
 
-    if (!websocket_->Send(text)) {
+    bool result = websocket_->Send(text);
+    if (!result) {
         ESP_LOGE(TAG, "Failed to send text: %s", text.c_str());
         SetError(Lang::Strings::SERVER_ERROR);
         return false;
     }
+
+    // 添加发送统计
+    auto& app = Application::GetInstance();
+    app.UpdateWsTxBytes(text.length());
 
     return true;
 }
@@ -97,6 +117,10 @@ bool WebsocketProtocol::OpenAudioChannel() {
     
     // 设置回调函数
     websocket_->OnData([this](const char* data, size_t len, bool binary) {
+        // 添加接收统计 - 在回调开始就统计
+        auto& app = Application::GetInstance();
+        app.UpdateWsRxBytes(len);
+        
         if (binary) {
             // 处理音频数据
             if (version_ == 2) {

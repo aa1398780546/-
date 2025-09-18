@@ -36,8 +36,8 @@ public:
         static Application instance;
         return instance;
     }
-    // É¾³ı¿½±´¹¹Ôìº¯ÊıºÍ¸³ÖµÔËËã·û
-    Application(const Application&) = delete;
+
+    Application(const Application&) = delete;           
     Application& operator=(const Application&) = delete;
 
     void Start();
@@ -59,7 +59,6 @@ public:
     void SetAecMode(AecMode mode);
     AecMode GetAecMode() const { return aec_mode_; }
     
-    // ĞÂÔö£º½ÓÊÕÍâ²¿ÒôÆµÊı¾İ£¨ÈçÒôÀÖ²¥·Å£©
     void AddAudioData(AudioStreamPacket&& packet);
     void PlaySound(const std::string_view& sound);
     AudioService& GetAudioService() { return audio_service_; }
@@ -78,7 +77,7 @@ private:
     AecMode aec_mode_ = kAecOff;
     std::string last_error_message_;
     AudioService audio_service_;
-    bool wifi_monitoring_enabled_ = false;  // WiFiĞÅºÅ¼à¿Ø¿ª¹Ø
+    bool wifi_monitoring_enabled_ = false;  // WiFiï¿½ÅºÅ¼ï¿½Ø¿ï¿½ï¿½ï¿½
 
     bool has_server_time_ = false;
     bool aborted_ = false;
@@ -90,6 +89,22 @@ private:
     void ShowActivationCode(const std::string& code, const std::string& message);
     void OnClockTimer();
     void SetListeningMode(ListeningMode mode);
+
+private:
+    // WebSocketæµé‡ç»Ÿè®¡
+    uint64_t ws_tx_bytes_ = 0;
+    uint64_t ws_rx_bytes_ = 0;
+    uint64_t ws_tx_messages_ = 0;
+    uint64_t ws_rx_messages_ = 0;
+    
+public:
+    // WebSocketæµé‡ç»Ÿè®¡æ–¹æ³•
+    void UpdateWsTxBytes(size_t bytes);
+    void UpdateWsRxBytes(size_t bytes);
+    uint64_t GetWsTxBytes() const { return ws_tx_bytes_; }
+    uint64_t GetWsRxBytes() const { return ws_rx_bytes_; }
+    uint64_t GetWsTxMessages() const { return ws_tx_messages_; }
+    uint64_t GetWsRxMessages() const { return ws_rx_messages_; }
 };
 
 #endif // _APPLICATION_H_
