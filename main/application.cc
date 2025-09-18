@@ -16,6 +16,7 @@
 #include <arpa/inet.h>
 #include <wifi_station.h>  // 如果还没有包含的话
 #include <ssid_manager.h>
+#include <esp_heap_caps.h>  // 用于heap_caps_get_free_size等函数
 
 #define TAG "Application"
 
@@ -531,7 +532,17 @@ void Application::OnClockTimer() {
         auto& wifi_station = WifiStation::GetInstance();
         if (wifi_station.IsConnected()) {
             int rssi = wifi_station.GetRssi();
-            ESP_LOGI(TAG, "WiFi信号强度: %d dBm", rssi);
+            
+            // 获取内存使用情况
+            size_t free_heap = SystemInfo::GetFreeHeapSize();
+            size_t min_free_heap = SystemInfo::GetMinimumFreeHeapSize();
+            
+            // 获取内部SRAM使用情况
+            int free_sram = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
+            int min_free_sram = heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL);
+            
+            ESP_LOGI(TAG, "WiFi: %d dBm | 堆内存: %u/%u bytes | 内部SRAM: %u/%u bytes", 
+                     rssi, free_heap, min_free_heap, free_sram, min_free_sram);
         }
     }
 

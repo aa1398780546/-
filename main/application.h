@@ -36,7 +36,7 @@ public:
         static Application instance;
         return instance;
     }
-    // åˆ é™¤æ‹·è´æ„é€ å‡½æ•°å’Œèµ‹å€¼è¿ç®—ç¬¦
+    // É¾³ı¿½±´¹¹Ôìº¯ÊıºÍ¸³ÖµÔËËã·û
     Application(const Application&) = delete;
     Application& operator=(const Application&) = delete;
 
@@ -59,7 +59,7 @@ public:
     void SetAecMode(AecMode mode);
     AecMode GetAecMode() const { return aec_mode_; }
     
-    // æ–°å¢ï¼šæ¥æ”¶å¤–éƒ¨éŸ³é¢‘æ•°æ®ï¼ˆå¦‚éŸ³ä¹æ’­æ”¾ï¼‰
+    // ĞÂÔö£º½ÓÊÕÍâ²¿ÒôÆµÊı¾İ£¨ÈçÒôÀÖ²¥·Å£©
     void AddAudioData(AudioStreamPacket&& packet);
     void PlaySound(const std::string_view& sound);
     AudioService& GetAudioService() { return audio_service_; }
@@ -78,7 +78,7 @@ private:
     AecMode aec_mode_ = kAecOff;
     std::string last_error_message_;
     AudioService audio_service_;
-    bool wifi_monitoring_enabled_ = false;  // WiFiä¿¡å·ç›‘æ§å¼€å…³
+    bool wifi_monitoring_enabled_ = false;  // WiFiĞÅºÅ¼à¿Ø¿ª¹Ø
 
     bool has_server_time_ = false;
     bool aborted_ = false;
